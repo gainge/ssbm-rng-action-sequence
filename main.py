@@ -9,24 +9,26 @@ class Action:
         self.frames = frames
         self.is_css = is_css
 
-    def getRollsPerFrame(self):
-        return self.rolls / self.frames
+    def getValue(self):
+        # return int((self.rolls / self.frames) * 1000)
+        return int((self.frames / self.rolls) * 1000)
 
     def __str__(self):
         return f'Action: \'{self.label}\', Rolls: {self.rolls}'
 
 
 # Define RNG-calling actions in the form (label, rolls, frames, is css action)
-# Frame measurements are approximate :P
+# Frame measurements are approximate
+# TODO: Adjust roll/frame ratios based on how things feel :P
 items = [
     Action('Idle Animation', 1, 360, False),
-    Action('Random Tag', 1, 10, True),
-    Action('Random Character', 2, 10, True),
+    Action('Random Tag', 1, 20, True),
+    Action('Random Character', 2, 20, True),
     Action('Shield', 9, 40, False),
     Action('Stage Load', 12, 60, True),         # Early pause code, also hardware dependent lol
-    Action('Standing Grab', 15, 29, False),
+    Action('Standing Grab', 15, 35, False),
     Action('Up Tilt', 27, 39, False),
-    Action('Upsmash', 40, 44, False),
+    Action('Upsmash', 40, 45, False),
     Action('Jump Airdodge', 62, 96, False),
     Action('Jump Land', 63, 86, False),         # fairly rough
     Action('Downsmash', 70, 55, False),         # SUUPER ROUGH ESTIMATE
@@ -36,71 +38,41 @@ items = [
     Action('Jump Double Jump Fair Land', 98, 144, False),
 ]
 
-MAX = 100000000
+MAX = 10000000000
 STAGE_LOAD_ROLLS = 12
 IN_GAME_THRESHOLD = 60 # approx no. rolls where in-game actions become faster than css manip
 idle_animation_action = items[0]
 stage_load_action = items[4]
 
 
-
-def build_sequence(total, dp, actions):
-    sequence = []
-    sequence_dict = {}
-
-    # Actually I think we can just loop based off the final entry
-    min_actions = dp[total]
-    count = total
-
-    for i in reversed(range(min_actions)):
-        # Find which action gets us to the next step in the line
-        for action in reversed(actions): # reversed to start with the most rolls
-            if action.rolls <= count and dp[count - action.rolls] == i:
-                sequence_dict[action] = sequence_dict.get(action, 0) + 1
-                sequence.append(action.label)
-                count = count - action.rolls
-                break # continue to the next step in our DP array
-    
-    return sequence, sequence_dict
-    
-
-
 def find_action_sequence(total, actions):
+    # Initialize dp array
     dp = [MAX] * (total + 1)
-    dp[0] = 0 # initialize first sequence as zero to facilitate algorithm
+    dp[0] = 0
 
-
-    for action in actions:
-        for i in range(1, total + 1):
+    for i in range(1, total + 1):
+        for action in actions:
             if action.rolls <= i:
-                dp[i] = min(dp[i - action.rolls] + 1, dp[i])
+                # Does this action offer a more efficient way to achieve the current rolls?
+                dp[i] = min(dp[i - action.rolls] + action.getValue(), dp[i])
     
+    # Now can we just backtrack like regular
+    action_sequence = {}
+    remainingValue = dp[total]
+    remainingRolls = total
 
-    # Check for lingering rolls needed
-    if dp[total] == MAX:
-        print('Solution not found, will append Idle Animations')
-
-    # Compute # of idle animation rolls needed to complete the sequence
-    idle_count = 0
-
-    while dp[total - idle_count] == MAX:
-        idle_count += 1
-
-    # Trim dp array in preparation for backtracking
-    if idle_count > 0:
-        dp = dp[:-idle_count]
-
-
-    num_actions = dp[-1] + idle_count
-
-    # Build action sequence using backtracking on dp array
-    sequence, sequence_dict = build_sequence(total - idle_count, dp, actions)
-
-    # Append idle animations to sequence, if appropriate
-    if idle_count > 0:
-        sequence_dict[idle_animation_action] = idle_count
-
-    return sequence_dict
+    while remainingRolls > 0:
+        for action in reversed(actions):
+            if (action.rolls <= remainingRolls and
+                dp[remainingRolls - action.rolls] == (remainingValue - action.getValue())
+                ):
+                # Add to action sequence and decrement remaining rolls
+                action_sequence[action] = action_sequence.get(action, 0) + 1
+                remainingRolls = remainingRolls - action.rolls
+                remainingValue = remainingValue - action.getValue()
+                break
+    
+    return action_sequence
 
 
 
@@ -108,7 +80,7 @@ def print_action(action, count):
     print(f'{count} - {action.label} ({action.rolls})')
 
 def display_results(action_sequence, target_rolls):
-    num_actions = len(action_sequence)
+    num_actions = sum(action_sequence.values())
 
     print()
     print('----------------------------------')
@@ -116,10 +88,15 @@ def display_results(action_sequence, target_rolls):
     print('----------------------------------')
     print(f'Target: {target_rolls} rolls')
 
-    print()
     # Always attempt to print the stage loads first
     if action_sequence.get(stage_load_action):
+        print()
         print_action(stage_load_action, action_sequence.get(stage_load_action))
+    else:
+        # Give warning for low roll count
+        print('!!! --- Assumed CSS Manip due to low roll count')
+        print()
+
     # Now iterate normally, skipping stage load
     for action, count in action_sequence.items():
         if action == stage_load_action:
