@@ -1,3 +1,5 @@
+import sys
+
 # Define the actions + their rolls to serve as the "coins"
 class Action:
 
@@ -8,10 +10,15 @@ class Action:
     def __str__(self):
         return f'Action: \'{self.label}\', Rolls: {self.rolls}'
 
+
+MAX = 100000000
+STAGE_LOAD_ROLLS = 12
+IN_GAME_THRESHOLD = 60 # approx no. rolls where in-game actions become faster than css manip
 idle_animation_action = Action('Idle Animation', 1)
 
 items = [
-    # Action('Idle Animation', 1),
+    # Action('Random Tag', 1),
+    # Action('Random Character', 2),
     Action('Shield', 9),
     Action('Standing Grab', 15),
     Action('Up Tilt', 27),
@@ -25,8 +32,6 @@ items = [
     Action('Jump Double Jump Fair Land', 98),
 ]
 
-
-MAX = 100000000
 
 
 def build_sequence(total, dp, actions):
@@ -78,12 +83,6 @@ def find_action_sequence(total, actions):
 
     num_actions = dp[-1] + idle_count
 
-    print()
-    print('----------------------------------')
-    print(f'Achievable in {num_actions} action{"s" if num_actions > 1 else ""}!')
-    print('----------------------------------')
-    print(f'Target: {total} rolls')
-
     # Build action sequence using backtracking on dp array
     sequence, sequence_dict = build_sequence(total - idle_count, dp, actions)
 
@@ -91,10 +90,25 @@ def find_action_sequence(total, actions):
     if idle_count > 0:
         sequence_dict[idle_animation_action] = idle_count
 
+    return sequence_dict
+
+
+
+def display_results(action_sequence, target_rolls):
+    num_actions = len(action_sequence)
+
     print()
-    for action, count in sequence_dict.items():
+    print('----------------------------------')
+    print(f'Achievable in {num_actions} action{"s" if num_actions > 1 else ""}!')
+    print('----------------------------------')
+    print(f'Target: {target_rolls} rolls')
+
+    print()
+    for action, count in action_sequence.items():
         print(f'{count} - {action.label} ({action.rolls})')
     print()
+
+
 
 
 def is_quit(val):
@@ -114,6 +128,16 @@ def get_user_input():
             print('!! -- Please input a number!')
             print()
 
+
+STANDARD_MANIP_FLAG = 'n';
+STANDARD_MANIP = False;
+
+if len(sys.argv) > 1:
+    STANDARD_MANIP = sys.argv[1] == STANDARD_MANIP_FLAG
+
+# Modify action set based on in-game vs standard manip flag
+
+
 # Main loop I guess lol
 print('-------------------------------')
 print('In-Game RNG Manipulation Helper')
@@ -126,6 +150,11 @@ while True:
         print('Goodbye!')
         break
 
-    find_action_sequence(rolls, items)
+    # Adjust rolls for standard manip
+
+    action_sequence = find_action_sequence(rolls, items)
+
+    display_results(action_sequence, rolls)
+    
 
 
