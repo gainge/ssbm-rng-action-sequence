@@ -16,14 +16,10 @@ class Action:
         return f'Action: \'{self.label}\', Rolls: {self.rolls}'
 
 
-MAX = 100000000
-STAGE_LOAD_ROLLS = 12
-IN_GAME_THRESHOLD = 60 # approx no. rolls where in-game actions become faster than css manip
-idle_animation_action = Action('Idle Animation', 1)
-
 # Define RNG-calling actions in the form (label, rolls, frames, is css action)
 # Frame measurements are approximate :P
 items = [
+    Action('Idle Animation', 1, 360, False),
     Action('Random Tag', 1, 10, True),
     Action('Random Character', 2, 10, True),
     Action('Shield', 9, 40, False),
@@ -39,6 +35,12 @@ items = [
     Action('Jump Fair Land', 88, 96, False),
     Action('Jump Double Jump Fair Land', 98, 144, False),
 ]
+
+MAX = 100000000
+STAGE_LOAD_ROLLS = 12
+IN_GAME_THRESHOLD = 60 # approx no. rolls where in-game actions become faster than css manip
+idle_animation_action = items[0]
+stage_load_action = items[4]
 
 
 
@@ -102,6 +104,9 @@ def find_action_sequence(total, actions):
 
 
 
+def print_action(action, count):
+    print(f'{count} - {action.label} ({action.rolls})')
+
 def display_results(action_sequence, target_rolls):
     num_actions = len(action_sequence)
 
@@ -112,8 +117,15 @@ def display_results(action_sequence, target_rolls):
     print(f'Target: {target_rolls} rolls')
 
     print()
+    # Always attempt to print the stage loads first
+    if action_sequence.get(stage_load_action):
+        print_action(stage_load_action, action_sequence.get(stage_load_action))
+    # Now iterate normally, skipping stage load
     for action, count in action_sequence.items():
-        print(f'{count} - {action.label} ({action.rolls})')
+        if action == stage_load_action:
+            continue
+        else:
+            print_action(action, count)
     print()
 
 
@@ -137,13 +149,14 @@ def get_user_input():
             print()
 
 
+
+
+# Start execution, look for CSS flag
 CSS_MANIP_FLAG = 'n';
 IS_CSS_MANIP = False;
 
 if len(sys.argv) > 1:
     IS_CSS_MANIP = sys.argv[1] == CSS_MANIP_FLAG
-
-# Modify action set based on in-game vs standard manip flag
 
 
 # Main loop I guess lol
@@ -160,19 +173,23 @@ while True:
 
     
     adjusted_rolls = rolls
+    available_actions = items
 
     # Adjust data for css manip if applicable
-    if IS_CSS_MANIP:
+    if IS_CSS_MANIP and rolls > IN_GAME_THRESHOLD:
         adjusted_rolls -= 12
     else:
         # don't use CSS manip items
+        available_actions = list(filter(lambda x: not x.is_css, items))
 
+    # Determine the action sequence
+    action_sequence = find_action_sequence(adjusted_rolls, available_actions)
 
-    adjusted_rolls = rolls - (12 if IS_CSS_MANIP else 0)
+    # Add in the extra stage load if in-game actions are used
+    if IS_CSS_MANIP and rolls > IN_GAME_THRESHOLD:
+        action_sequence[stage_load_action] = action_sequence.get(stage_load_action, 0) + 1
 
-    action_sequence = find_action_sequence(adjusted_rolls, items)
-
-
+    # Show the world what we cooked up!
     display_results(action_sequence, rolls)
     
 
