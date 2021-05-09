@@ -10,7 +10,6 @@ class Action:
         self.is_css = is_css
 
     def getValue(self):
-        # return int((self.rolls / self.frames) * 1000)
         return int((self.frames / self.rolls) * 1000)
 
     def __str__(self):
@@ -94,6 +93,7 @@ def display_results(action_sequence, target_rolls):
         print_action(stage_load_action, action_sequence.get(stage_load_action))
     else:
         # Give warning for low roll count
+        # TODO: maybe just abort the calc on low rolls altogether, lol
         print('!!! --- Assumed CSS Manip due to low roll count')
         print()
 
